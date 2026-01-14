@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --main-red: #ff0000; --gold: #ffcc00; }
+        body, html { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: 'Oswald', sans-serif; }
+
+        /* Modern 3D Background */
+        .breaking-bg {
+            width: 100%; height: 100%;
+            background: radial-gradient(circle, #220000 0%, #000 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border: 20px solid; border-image: linear-gradient(to right, var(--main-red), var(--gold)) 1;
+            position: relative; overflow: hidden;
+        }
+
+        /* Animated Rays */
+        .rays {
+            position: absolute; top: 50%; left: 50%; width: 200%; height: 200%;
+            background: conic-gradient(from 0deg, transparent, rgba(255,0,0,0.2), transparent 40deg);
+            animation: rotate 10s linear infinite; transform-origin: center;
+        }
+
+        @keyframes rotate { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        .header-box {
+            z-index: 10; animation: bounce 1.5s infinite alternate;
+        }
+
+        .header-text {
+            font-size: 160px; color: white; text-transform: uppercase;
+            text-shadow: 0 0 20px var(--main-red), 0 0 40px var(--main-red);
+            font-weight: 900; margin: 0; letter-spacing: 5px;
+        }
+
+        .news-container {
+            width: 85%; background: rgba(255, 255, 255, 0.95);
+            padding: 60px; border-radius: 0 100px 0 100px;
+            box-shadow: 0 0 50px rgba(255,0,0,0.6);
+            z-index: 10; transform: skewX(-5deg);
+            border: 8px solid var(--gold); margin-top: 40px;
+        }
+
+        .news-text {
+            font-size: 75px; color: #111; text-align: center;
+            margin: 0; font-weight: bold; line-height: 1.2;
+        }
+
+        .live-tag {
+            position: absolute; top: 80px; left: 80px;
+            background: var(--main-red); color: white;
+            padding: 15px 40px; font-size: 40px; font-weight: bold;
+            animation: blink 0.8s infinite; z-index: 20;
+        }
+
+        @keyframes blink { 0% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.05); } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="breaking-bg">
+    <div class="rays"></div>
+    <div class="live-tag">LIVE</div>
+    <div class="header-box">
+        <h1 class="header-text">BREAKING NEWS</h1>
+    </div>
+    <div class="news-container">
+        <p class="news-text" id="headline">DATA LOAD HO RAHA HAI...</p>
+    </div>
+</div>
+
+<audio id="newsSound" loop>
+    <source src="https://www.soundjay.com/free-music/sounds/action-movie-trailer-01.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    // अपनी Google Sheet ID यहाँ डालें
+    const SHEET_ID = '1qGuxjH6a6jj3O6cGV6njELhricDzkP4zlnRLkRno5Hc'; 
+    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+
+    let newsData = [];
+    let index = 0;
+
+    async function loadSheetNews() {
+        try {
+            const response = await fetch(CSV_URL);
+            const data = await response.text();
+            // CSV को लिस्ट में बदलना
+            newsData = data.split('\n').slice(1).filter(item => item.trim() !== "");
+            if(newsData.length > 0) {
+                showNews();
+            }
+        } catch (e) { console.error("Sheet Error"); }
+    }
+
+    function showNews() {
+        if(newsData.length === 0) return;
+        
+        const headline = newsData[index].replace(/"/g, ""); // Remove quotes
+        document.getElementById('headline').innerText = headline;
+        
+        speakNow(headline);
+        
+        index = (index + 1) % newsData.length;
+        setTimeout(showNews, 15000); // 15 सेकंड बाद अगली खबर
+    }
+
+    function speakNow(txt) {
+        window.speechSynthesis.cancel();
+        const speech = new SpeechSynthesisUtterance("बड़ी खबर. " + txt);
+        speech.lang = 'hi-IN';
+        speech.rate = 0.85;
+        window.speechSynthesis.speak(speech);
+    }
+
+    // Interaction चालू करने के लिए
+    window.onclick = () => {
+        document.getElementById('newsSound').play();
+        loadSheetNews();
+    };
+
+    // हर 2 मिनट में शीट से नया डेटा चेक करेगा
+    setInterval(loadSheetNews, 120000);
+</script>
+
+</body>
+</html>
