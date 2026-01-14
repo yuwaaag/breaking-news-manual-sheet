@@ -6,7 +6,6 @@
         :root { --main-red: #ff0000; --gold: #ffcc00; }
         body, html { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: 'Oswald', sans-serif; }
 
-        /* Modern 3D Background */
         .breaking-bg {
             width: 100%; height: 100%;
             background: radial-gradient(circle, #220000 0%, #000 100%);
@@ -15,7 +14,6 @@
             position: relative; overflow: hidden;
         }
 
-        /* Animated Rays */
         .rays {
             position: absolute; top: 50%; left: 50%; width: 200%; height: 200%;
             background: conic-gradient(from 0deg, transparent, rgba(255,0,0,0.2), transparent 40deg);
@@ -24,10 +22,7 @@
 
         @keyframes rotate { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
 
-        .header-box {
-            z-index: 10; animation: bounce 1.5s infinite alternate;
-        }
-
+        .header-box { z-index: 10; animation: bounce 1.5s infinite alternate; }
         .header-text {
             font-size: 160px; color: white; text-transform: uppercase;
             text-shadow: 0 0 20px var(--main-red), 0 0 40px var(--main-red);
@@ -39,20 +34,12 @@
             padding: 60px; border-radius: 0 100px 0 100px;
             box-shadow: 0 0 50px rgba(255,0,0,0.6);
             z-index: 10; transform: skewX(-5deg);
-            border: 8px solid var(--gold); margin-top: 40px;
+            border: 8px solid var(--gold); margin-top: 40px; min-height: 150px;
+            display: flex; align-items: center; justify-content: center;
         }
 
-        .news-text {
-            font-size: 75px; color: #111; text-align: center;
-            margin: 0; font-weight: bold; line-height: 1.2;
-        }
-
-        .live-tag {
-            position: absolute; top: 80px; left: 80px;
-            background: var(--main-red); color: white;
-            padding: 15px 40px; font-size: 40px; font-weight: bold;
-            animation: blink 0.8s infinite; z-index: 20;
-        }
+        .news-text { font-size: 70px; color: #111; text-align: center; margin: 0; font-weight: bold; line-height: 1.2; }
+        .live-tag { position: absolute; top: 80px; left: 80px; background: var(--main-red); color: white; padding: 15px 40px; font-size: 40px; font-weight: bold; animation: blink 0.8s infinite; z-index: 20; }
 
         @keyframes blink { 0% { opacity: 1; } 100% { opacity: 0; } }
         @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.05); } }
@@ -64,12 +51,8 @@
 <div class="breaking-bg">
     <div class="rays"></div>
     <div class="live-tag">LIVE</div>
-    <div class="header-box">
-        <h1 class="header-text">BREAKING NEWS</h1>
-    </div>
-    <div class="news-container">
-        <p class="news-text" id="headline">DATA LOAD HO RAHA HAI...</p>
-    </div>
+    <div class="header-box"><h1 class="header-text">BREAKING NEWS</h1></div>
+    <div class="news-container"><p class="news-text" id="headline">कृपया स्क्रीन पर क्लिक करें...</p></div>
 </div>
 
 <audio id="newsSound" loop>
@@ -79,33 +62,46 @@
 <script>
     // अपनी Google Sheet ID यहाँ डालें
     const SHEET_ID = '1qGuxjH6a6jj3O6cGV6njELhricDzkP4zlnRLkRno5Hc'; 
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
     let newsData = [];
-    let index = 0;
+    let currentIndex = 0;
 
     async function loadSheetNews() {
         try {
-            const response = await fetch(CSV_URL);
+            const response = await fetch(CSV_URL + '&cachebuster=' + new Date().getTime());
             const data = await response.text();
-            // CSV को लिस्ट में बदलना
-            newsData = data.split('\n').slice(1).filter(item => item.trim() !== "");
-            if(newsData.length > 0) {
+            
+            // CSV को सही से साफ़ करना
+            const rows = data.split(/\r?\n/);
+            newsData = rows
+                .map(row => row.replace(/^"|"$/g, '').trim()) // Quotes हटाना
+                .filter(row => row !== "" && row.toLowerCase() !== "news"); // Header और खाली लाइन हटाना
+            
+            if (newsData.length > 0 && currentIndex === 0) {
                 showNews();
             }
-        } catch (e) { console.error("Sheet Error"); }
+        } catch (e) { 
+            console.error("Sheet Load Error");
+            document.getElementById('headline').innerText = "Sheet Load Error! Link Check Karein.";
+        }
     }
 
     function showNews() {
-        if(newsData.length === 0) return;
+        if (newsData.length === 0) return;
+
+        // अगर Index डेटा से बाहर निकल जाए तो वापस 0 पर लाएं
+        if (currentIndex >= newsData.length) currentIndex = 0;
+
+        const currentHeadline = newsData[currentIndex];
+        document.getElementById('headline').innerText = currentHeadline;
         
-        const headline = newsData[index].replace(/"/g, ""); // Remove quotes
-        document.getElementById('headline').innerText = headline;
+        speakNow(currentHeadline);
         
-        speakNow(headline);
+        currentIndex++;
         
-        index = (index + 1) % newsData.length;
-        setTimeout(showNews, 15000); // 15 सेकंड बाद अगली खबर
+        // 15 सेकंड बाद अगली खबर
+        setTimeout(showNews, 15000);
     }
 
     function speakNow(txt) {
@@ -116,14 +112,14 @@
         window.speechSynthesis.speak(speech);
     }
 
-    // Interaction चालू करने के लिए
     window.onclick = () => {
+        document.getElementById('newsSound').volume = 0.3;
         document.getElementById('newsSound').play();
         loadSheetNews();
     };
 
-    // हर 2 मिनट में शीट से नया डेटा चेक करेगा
-    setInterval(loadSheetNews, 120000);
+    // हर 1 मिनट में शीट से ताज़ा डेटा अपडेट करना
+    setInterval(loadSheetNews, 60000);
 </script>
 
 </body>
