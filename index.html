@@ -36,7 +36,10 @@
             z-index: 10; transform: skewX(-5deg);
             border: 8px solid var(--gold); margin-top: 40px; min-height: 150px;
             display: flex; align-items: center; justify-content: center;
+            animation: slideUp 0.5s ease-out;
         }
+
+        @keyframes slideUp { from { transform: skewX(-5deg) translateY(50px); opacity: 0; } to { transform: skewX(-5deg) translateY(0); opacity: 1; } }
 
         .news-text { font-size: 70px; color: #111; text-align: center; margin: 0; font-weight: bold; line-height: 1.2; }
         .live-tag { position: absolute; top: 80px; left: 80px; background: var(--main-red); color: white; padding: 15px 40px; font-size: 40px; font-weight: bold; animation: blink 0.8s infinite; z-index: 20; }
@@ -52,7 +55,7 @@
     <div class="rays"></div>
     <div class="live-tag">LIVE</div>
     <div class="header-box"><h1 class="header-text">BREAKING NEWS</h1></div>
-    <div class="news-container"><p class="news-text" id="headline">कृपया स्क्रीन पर क्लिक करें...</p></div>
+    <div class="news-container" id="n-box"><p class="news-text" id="headline">लोड हो रहा है...</p></div>
 </div>
 
 <audio id="newsSound" loop>
@@ -60,65 +63,69 @@
 </audio>
 
 <script>
-    // अपनी Google Sheet ID यहाँ डालें
     const SHEET_ID = '1qGuxjH6a6jj3O6cGV6njELhricDzkP4zlnRLkRno5Hc'; 
     const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
     let newsData = [];
     let currentIndex = 0;
+    let isPlaying = false;
 
     async function loadSheetNews() {
         try {
-            const response = await fetch(CSV_URL + '&cachebuster=' + new Date().getTime());
+            const response = await fetch(CSV_URL + '&cb=' + Date.now());
             const data = await response.text();
-            
-            // CSV को सही से साफ़ करना
             const rows = data.split(/\r?\n/);
             newsData = rows
-                .map(row => row.replace(/^"|"$/g, '').trim()) // Quotes हटाना
-                .filter(row => row !== "" && row.toLowerCase() !== "news"); // Header और खाली लाइन हटाना
+                .map(row => row.replace(/^"|"$/g, '').trim())
+                .filter(row => row !== "" && row.toLowerCase() !== "news");
             
-            if (newsData.length > 0 && currentIndex === 0) {
-                showNews();
+            if (newsData.length > 0 && !isPlaying) {
+                isPlaying = true;
+                showNext();
             }
-        } catch (e) { 
-            console.error("Sheet Load Error");
-            document.getElementById('headline').innerText = "Sheet Load Error! Link Check Karein.";
-        }
+        } catch (e) { console.error("Error loading sheet"); }
     }
 
-    function showNews() {
+    function showNext() {
         if (newsData.length === 0) return;
-
-        // अगर Index डेटा से बाहर निकल जाए तो वापस 0 पर लाएं
         if (currentIndex >= newsData.length) currentIndex = 0;
 
         const currentHeadline = newsData[currentIndex];
-        document.getElementById('headline').innerText = currentHeadline;
+        const headlineElement = document.getElementById('headline');
+        const boxElement = document.getElementById('n-box');
+
+        // Animation Effect
+        boxElement.style.animation = 'none';
+        boxElement.offsetHeight; // trigger reflow
+        boxElement.style.animation = 'slideUp 0.5s ease-out';
+
+        headlineElement.innerText = currentHeadline;
         
         speakNow(currentHeadline);
-        
         currentIndex++;
-        
-        // 15 सेकंड बाद अगली खबर
-        setTimeout(showNews, 15000);
     }
 
     function speakNow(txt) {
         window.speechSynthesis.cancel();
         const speech = new SpeechSynthesisUtterance("बड़ी खबर. " + txt);
         speech.lang = 'hi-IN';
-        speech.rate = 0.85;
+        speech.rate = 0.9;
+
+        // जैसे ही AI बोलना खत्म करेगा, 1.5 सेकंड बाद अगली खबर आएगी
+        speech.onend = function() {
+            setTimeout(showNext, 1500); 
+        };
+
         window.speechSynthesis.speak(speech);
     }
 
     window.onclick = () => {
-        document.getElementById('newsSound').volume = 0.3;
+        document.getElementById('newsSound').volume = 0.2;
         document.getElementById('newsSound').play();
         loadSheetNews();
     };
 
-    // हर 1 मिनट में शीट से ताज़ा डेटा अपडेट करना
+    // हर 1 मिनट में बैकग्राउंड में डेटा रिफ्रेश करना
     setInterval(loadSheetNews, 60000);
 </script>
 
